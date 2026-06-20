@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# DEM / large data (drop real GeoTIFFs here locally; not committed)
+sample_data/*.tif
+sample_data/*.tiff
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

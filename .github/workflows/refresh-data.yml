@@ -1,0 +1,47 @@
+name: Refresh hydrology snapshot
+
+# Pulls the latest BBWS Bengawan Solo data and commits the static GeoJSON
+# snapshot used by the GitHub Pages frontend.
+
+on:
+  # NOTE: GitHub Actions runners cannot reach the BBWS host (it blocks
+  # datacenter/non-ID IPs), so the scheduled fetch always timed out.
+  # The real refresh runs from a machine in Indonesia (see refresh-and-push.bat).
+  # Kept manual + on-change only; build_static.py now degrades gracefully.
+  workflow_dispatch:          # allow manual run
+  push:
+    branches: [main, master]
+    paths:
+      - "data_pipeline/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build static snapshot
+        run: python data_pipeline/build_static.py
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [[ -n "$(git status --porcelain docs/data/stations.geojson)" ]]; then
+            git add docs/data/stations.geojson
+            git commit -m "chore: refresh hydrology snapshot [skip ci]"
+            git push
+          else
+            echo "No data change."
+          fi

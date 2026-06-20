@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Indonesia Flood Risk EWS — WebGIS Early Warning System</title>
+  <meta name="description"
+    content="Indonesia Flood Risk EWS — WebGIS Early Warning System & Flood Inundation Mapper. Implementasi awal DAS Bengawan Solo: data tinggi muka air & curah hujan real-time, pemodelan genangan banjir." />
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%8A%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+
+<body>
+  <div id="app">
+    <!-- ── Sidebar ── -->
+    <aside id="sidebar">
+      <header class="brand">
+        <div class="brand-mark"><i class="fa-solid fa-water"></i></div>
+        <div>
+          <h1>Flood Risk EWS</h1>
+          <span>Indonesia · DAS Bengawan Solo</span>
+        </div>
+      </header>
+
+      <div class="kpis" id="kpis">
+        <div class="kpi"><span class="kpi-num" id="kpi-total">–</span><span class="kpi-label">Stasiun</span></div>
+        <div class="kpi alert"><span class="kpi-num" id="kpi-alert">–</span><span class="kpi-label">Siaga</span></div>
+        <div class="kpi"><span class="kpi-num" id="kpi-tma">–</span><span class="kpi-label">Pos TMA</span></div>
+      </div>
+
+      <div class="panel">
+        <h2><i class="fa-solid fa-filter"></i> Filter</h2>
+        <div class="filter-row">
+          <label>Tipe Pos</label>
+          <select id="f-tipe">
+            <option value="">Semua</option>
+            <option value="TMA">Tinggi Muka Air (TMA)</option>
+            <option value="CH">Curah Hujan (CH)</option>
+            <option value="Klimatologi">Klimatologi</option>
+          </select>
+        </div>
+        <div class="filter-row">
+          <label>Wilayah</label>
+          <select id="f-wilayah">
+            <option value="">Semua</option>
+            <option value="hulu">Hulu</option>
+            <option value="madiun">Madiun</option>
+            <option value="hilir">Hilir</option>
+          </select>
+        </div>
+        <label class="check"><input type="checkbox" id="f-alert" /> Hanya pos berstatus siaga</label>
+      </div>
+
+      <div class="panel">
+        <h2><i class="fa-solid fa-triangle-exclamation"></i> Peringatan Aktif</h2>
+        <ul id="alert-list" class="alert-list">
+          <li class="muted">Memuat…</li>
+        </ul>
+      </div>
+
+      <div class="panel legend">
+        <h2><i class="fa-solid fa-list"></i> Legenda Siaga</h2>
+        <div class="legend-row"><span class="dot" style="background:#2ecc71"></span> Aman / Normal</div>
+        <div class="legend-row"><span class="dot" style="background:#f1c40f"></span> Waspada (Siaga III)</div>
+        <div class="legend-row"><span class="dot" style="background:#e67e22"></span> Siaga (Siaga II)</div>
+        <div class="legend-row"><span class="dot" style="background:#e74c3c"></span> Awas (Siaga I)</div>
+        <div class="legend-row"><span class="swatch"></span> Genangan banjir (model)</div>
+      </div>
+
+      <footer class="side-foot">
+        <button id="btn-about" class="link"><i class="fa-solid fa-circle-info"></i> Tentang</button>
+        <span id="updated" class="muted"></span>
+      </footer>
+    </aside>
+
+    <!-- ── Map ── -->
+    <main id="map-wrap">
+      <div id="map"></div>
+
+      <!-- Inundation control (shown when a TMA station is selected) -->
+      <div id="inundation-panel" class="hidden">
+        <div class="ip-head">
+          <strong id="ip-name">—</strong>
+          <button id="ip-close" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p class="ip-sub">Model Genangan Banjir (Flood Inundation)</p>
+        <div class="ip-stage">
+          <label>Muka air: <b id="ip-wse">–</b> m</label>
+          <input type="range" id="ip-slider" min="0" max="100" value="50" />
+          <div class="ip-marks">
+            <span class="m-hijau">Hijau</span>
+            <span class="m-kuning">Kuning</span>
+            <span class="m-merah">Merah</span>
+          </div>
+        </div>
+        <div class="ip-stats">
+          <div><span id="ip-area">–</span><small>km² tergenang</small></div>
+          <div><span id="ip-debit">–</span><small>m³/s debit</small></div>
+        </div>
+        <button id="ip-run" class="btn-primary"><i class="fa-solid fa-play"></i> Jalankan Model</button>
+        <p class="ip-method muted" id="ip-method"></p>
+      </div>
+
+      <div id="loading" class="loading hidden"><i class="fa-solid fa-spinner fa-spin"></i></div>
+    </main>
+  </div>
+
+  <!-- About modal -->
+  <div id="about" class="modal hidden">
+    <div class="modal-box">
+      <button id="about-close" class="icon-btn modal-x"><i class="fa-solid fa-xmark"></i></button>
+      <h2><i class="fa-solid fa-water"></i> Indonesia Flood Risk EWS</h2>
+      <p>WebGIS <b>Early Warning System</b> dan <b>Flood Inundation Mapper</b> untuk risiko banjir di Indonesia —
+        implementasi awal pada DAS Bengawan Solo, terinspirasi oleh <a href="https://fim.wim.usgs.gov/fim/"
+          target="_blank" rel="noopener">USGS Flood Inundation Mapper</a>.</p>
+      <h3>Sumber Data</h3>
+      <p>Tinggi muka air, debit, dan curah hujan real-time dari <b>BBWS Bengawan Solo</b> (hidrologi.bbws-bsolo.net).
+        Status siaga dihitung dari ambang elevasi hijau / kuning / merah tiap pos.</p>
+      <h3>Pemodelan Genangan</h3>
+      <p>Genangan mengacu pada <b>geometri sungai nyata dari OpenStreetMap</b> di sekitar titik AWLR, di-<i>buffer</i>
+        sesuai tinggi muka air sehingga mengikuti alur sungai sebenarnya</p>
+      <h3>Arsitektur</h3>
+      <p>Backend <b>Python FastAPI</b> (data + model genangan) · Frontend <b>Leaflet</b></p>
+      <p class="muted">M Ihsanur Adib · Geospatial Data Scientist</p>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/inundation-demo.js"></script>
+  <script src="js/app.js"></script>
+</body>
+
+</html>
